@@ -20,6 +20,7 @@ void setup() {
   //  }
    pinMode(msg7RESET, OUTPUT);
    pinMode(msg7Strobe, OUTPUT);
+   pinMode(msg7DCout, INPUT);
   //  pinMode(pushButton, INPUT); // never actually used in this example.
   //  digitalWrite(pushButton, HIGH); // Enable internal pull-up
   Serial.begin(9600);
