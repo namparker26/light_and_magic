@@ -1,91 +1,57 @@
+
+// THIS CODE ATTEMPT TO COMBINE THE longbeo_led and light_and_magic scripts (from the bald engineer) 
+// PURPOSE: TO CONTROL THE LED MATRIX, USING MSGEQ7
+#define msg7RESET 11
+#define msg7Strobe 12
+#define msg7DCout 0
+const int LEDpins[7] = {3,4,5,6,9,9,10}; // there are 5 LEDs and 7 freq bands. So, repeat LEDs
+
 #include "LedControl.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
 
 // #include <iostream.h>
+int DIN = 13;
+int CS = 8;
+int CLK = 2;
+LedControl lc=LedControl(DIN, CLK, CS,1); //assign pins for led control
 
-using namespace std;
-int DIN = 12;
-int CS = 11;
-int CLK = 10;
 //Mario's Ideas
 //MAX7219 - using Led Control library to display all   leds one by one
-
-LedControl lc=LedControl(DIN, CLK, CS,1);
-
-// int myNumber[] = {1, 2, 3, 4, 5, 6, 7, 8};
+//define pins for led matrix control
+#define pushButton 2
 
 
-// int myNumberSize = sizeof(myNumber) / sizeof(myNumber[0]);
-
-void setup()   {
+void setup() {
   Serial.begin(9600);
+  //  initialize the digital pin as an output.
+  //  Pin 13 has an LED connected on most Arduino boards:
+   for (int x=0; x<7; x++) {
+      pinMode(LEDpins[x], OUTPUT); //defining the LEDpin of [x] to be OUTPUT, using in the loop below
+   }
+   pinMode(msg7RESET, OUTPUT);
+   pinMode(msg7Strobe, OUTPUT);
 
+  //  pinMode(pushButton, INPUT); // never actually used in this example.
+  //  digitalWrite(pushButton, HIGH); // Enable internal pull-up
+
+  //led matrix set up
   lc.shutdown(0,false);
   lc.setIntensity(0,0);
   lc.clearDisplay(0);
+
 }
 
 
-// void ledLoop (){
-//   for (int j = 0; j< 8; j++){
-
-//     for (int i = 0; i < myNumber[j]; i++){
-//       lc.setLed(0,j,i, true);
-//       delay(100);
-//     }
-//   }
-//   delay(100);
-//   for (int j = 7; j >= 0 ; j--){
-//     for (int k = myNumber[j] -1 ; k >= 0; k--){
-//       lc.setLed(0,j,k, false);
-//         Serial.print("k = ");
-//       Serial.println(k);
-//       delay(100);
-//     }
-
-//   }
-// }
-
-void randomLoop() {
-  // int r = rand() % 8 + 1; // random 0->7
-  // Serial.println(r);
-  int num_random_col = rand() % 8;
-  // for (int i = 0; i < num_random_col; i++) {
-  //     displayColumn(i);
-  // }
-  byte ledConfiguration[8];
-  getRandomLedConfiguration(ledConfiguration);
-  for (int r = 0; r < 8; r++) {
-    lc.setRow(0, r, ledConfiguration[r]);
-    delay(20);
-  }
-
-  for (int i = 7; i >= 0; i--) {
-    undisplayColumn(i);
-  }
-}
-
-
-// void displayColumn(int n_row) {
-
-// }
-
-void undisplayColumn(int col) {
-  // for (int r = n_row-1; r >= 0; r--) {
-    // lc.setLed(0, r, col, false);
-    lc.setRow(0, col, 00000000);
-    delay(20);
-  // }
-}
-
-void getRandomLedConfiguration(byte *result) {
+void getRandomLedConfiguration(byte *result, int LEDvalue) {
   int col_heights[] = {0, 0, 0, 0, 0, 0, 0, 0};
   // generate random column heights
   for (int i = 0; i < 8; i++) {
-    col_heights[i] = rand() % 8; // random 0->7
+    col_heights[i] =  LEDvalue; // random 0->7
+    // Serial.println(col_heights[i]);
   }
+  
   // all string representation of rows
   String all_rows[] = {"00000000", "00000000", "00000000", "00000000", 
                        "00000000", "00000000", "00000000", "00000000"};
@@ -94,6 +60,7 @@ void getRandomLedConfiguration(byte *result) {
     for (int col = 0; col < 8; col++) {
       if (row < col_heights[col]) {
         all_rows[row][col] = '1';
+        // Serial.println("all_rows[row][col]: " + all_rows[row][col]);
       }
     }
   }
@@ -101,6 +68,7 @@ void getRandomLedConfiguration(byte *result) {
   // convert string to byte array and return it
   for (int i = 0; i < 8; i++) {
     result[i] = byteFromString(all_rows[i]);
+    Serial.println("result: "+result[i]);
   }
 }
 
@@ -114,7 +82,59 @@ byte byteFromString(String s) {
     return result;
 }
 
-void   loop() {
-  randomLoop();
-  delay(100);
+void undisplayColumn(int col) {
+  // for (int r = n_row-1; r >= 0; r--) {
+    // lc.setLed(0, r, col, false);
+    lc.setRow(0, col, 00000000);
+    delay(20);
+  // }
+}
+
+void displayLed(int ledMatrixValue, int x){
+  for(int i = 0; i < ledMatrixValue; i++){
+    lc.setLed(0,x,i, true);
+  }
+}
+
+void undisplayLed(int ledMatrixValue, int x){
+  for(int i = ledMatrixValue-1; i>=0; i--){
+    lc.setLed(0,x,i, false);
+  }
+}
+
+
+void loop() {
+  int col_heights[] = {0, 0, 0, 0, 0, 0, 0, 0};
+
+
+  digitalWrite(msg7RESET, HIGH); // reset the MSGEQ7's counter
+  delay(5);
+  digitalWrite(msg7RESET, LOW);
+
+  for (int x = 0; x < 7; x++){
+    digitalWrite(msg7Strobe, LOW); // output each DC value for each freq band
+    delayMicroseconds(35); // to allow the output to settle
+    int spectrumRead = analogRead(msg7DCout);
+
+    int PWMvalue = map(spectrumRead, 0, 1024, 0, 170); // scale analogRead's value to Write's 255 max
+    if (PWMvalue < 50)
+        PWMvalue = PWMvalue / 2; // bit of a noise filter, so the LEDs turn off at low levels
+
+    int LEDvalue = map(PWMvalue, 0, 170, 0, 8); // scale analogRead's value to Write's led matrix
+
+    analogWrite(LEDpins[x], PWMvalue);
+    col_heights[x] = LEDvalue;
+    digitalWrite(msg7Strobe, HIGH);
+  
+    Serial.print(LEDvalue);
+    Serial.print(", ");
+  };
+  for (int x = 0; x <8; x++){
+    for (int i = 0; i < col_heights[x]; i++){
+      lc.setLed(0, x, i,true);
+    }
+    
+  };
+  delay(50);
+  lc.clearDisplay(0);
 }
