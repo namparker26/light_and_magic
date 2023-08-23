@@ -1,0 +1,6 @@
+{
+    "board": "arduino:avr:uno",
+    "port": "/dev/tty.usbmodem11201",
+    "programmer": "parallel",
+    "sketch": "msgeq7_matrix/msgeq7_matrix.ino"
+}
